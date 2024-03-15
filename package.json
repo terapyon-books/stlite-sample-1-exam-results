@@ -1,5 +1,5 @@
 {
-    "name": "sample_1_test_results",
+    "name": "sample-1-exam-results",
     "version": "0.1.0",
     "main": "./build/electron/main.js",
     "scripts": {

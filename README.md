@@ -1,6 +1,6 @@
 # Streamlitデモアプリ
 
-- 名称: stlite-sample-1-test-results
+- 名称: stlite-sample-1-exam-results
 - 目的: Streamlitの最小限のサンプル用デモアプリ
 - 機能: Excelファイルからグラフ表示や結果のダウンロード
 
@@ -50,9 +50,9 @@ https://docs.python.org/ja/3/tutorial/venv.html
 GitHubからパッケージをダウンロードしてインストール（推奨）
 
 ```sh
-(venv) % git clone git@github.com:terapyon-books/stlite-sample-1-test-results.git
-(venv) % stlite-sample-1-test-results
-(venv) % pip install -r requirements.txt
+(venv) % git clone git@github.com:terapyon-books/stlite-sample-1-exam-results.git
+(venv) % stlite-sample-1-exam-results
+(venv) % pip install -r requirements.txt -c constraints.txt
 ```
 
 ### node
@@ -65,7 +65,7 @@ GitHubからパッケージをダウンロードしてインストール（推�
 ## 起動方法
 
 ```
-(venv) % streamlit run sample_1_test_results/streamlit_app.py
+(venv) % streamlit run sample_1_exam_results/streamlit_app.py
 ```
 
 ## 表示確認
