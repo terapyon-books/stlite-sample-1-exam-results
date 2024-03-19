@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
 
 
 if "uploaded_file" not in st.session_state:
@@ -21,6 +22,33 @@ def get_data(file) -> pd.DataFrame:
     """
     df = pd.read_excel(file, dtype={"生徒番号": str})
     return df
+
+
+def get_defult_threshold(ser: pd.Series) -> tuple[float, float, float, float]:
+    """
+    教科の平均値と標準偏差から5段階の閾値を算出
+
+    Parameters:
+        ser (pd.Series): 教科のSeries
+
+    Returns:
+        tuple: 閾値のタプル
+    """
+    # subject_std = ser.std()
+    # subject_mean = ser.mean()
+    subject_q1 = ser.quantile(0.25)
+    subject_median = ser.median()
+    subject_q3 = ser.quantile(0.75)
+    subject_iqr = subject_q1 - subject_q3
+    thresholds = (
+        # subject_q1 - 1.5 * subject_iqr,
+        subject_median - 2 * (subject_median - subject_q1),
+        subject_q1,
+        subject_median,
+        # subject_q3 + 1.5 * subject_iqr
+        subject_q3 + 2 * (subject_q3 - subject_median)
+    )
+    return thresholds
 
 
 st.title("成績評価の可視化")
@@ -73,49 +101,87 @@ else:
         selected_subjects = filterd_df.columns[2:]
     else:
         selected_subjects = subject_names
+    subject_list = selected_subjects.to_list()
 
-    graph_option = st.selectbox("グラフの選択", ("個人別", "クラス別", "教科別分布"))
+    graph_option = st.selectbox(
+        "グラフの選択", ("個人別", "クラス別", "教科別分布", "全体分布", "教科別レベル")
+    )
 
+    # 各種グラフの描画
     if graph_option == "個人別":
-        chart_cols = [name_col] + selected_subjects.to_list()
+        chart_cols = [name_col] + subject_list
         chart_data = filterd_df.loc[:, chart_cols]
         st.bar_chart(
             chart_data,
             x=name_col,
-            y=selected_subjects.to_list(),
+            y=subject_list,
             use_container_width=True,
         )
     elif graph_option == "クラス別":
         col_name = "クラス"
         if st.toggle("教科別に表示"):
             chart_data = filterd_df.groupby(col_name).mean(numeric_only=True)
-            st.bar_chart(
-                chart_data, y=selected_subjects.to_list(), use_container_width=True
-            )
+            st.bar_chart(chart_data, y=subject_list, use_container_width=True)
         else:
             df_groupby_class = filterd_df.groupby(col_name)
-            chart_data = (
-                df_groupby_class[selected_subjects.to_list()].mean().sum(axis=1)
-            )
+            chart_data = df_groupby_class[subject_list].mean().sum(axis=1)
             st.bar_chart(chart_data, use_container_width=True)
             st.write(chart_data)
     elif graph_option == "教科別分布":
-        ncols=len(selected_subjects)
-        if ncols > 1:
-            fig, axex = plt.subplots(1, ncols, figsize=(20, 10))
-            for i, subject in enumerate(selected_subjects):
-                subject_data = filterd_df.loc[:, subject]
-                axex[i].hist(subject_data, bins=5)
-        else:
-            fig, ax = plt.subplots(1, 1, figsize=(20, 10))
-            subject_data = filterd_df.loc[:, selected_subjects[0]]
-            ax.hist(subject_data, bins=5)
+        fig_box = px.box(
+            filterd_df.loc[:, subject_list],
+            labels={"variable": "教科", "value": "得点"},
+        )
+        st.plotly_chart(fig_box)
 
-        if ncols > 1:
-            st.text(f"順に {' / '.join(selected_subjects.to_list())} のヒストグラムを表示します。")
-        else:
-            st.text(f"{' / '.join(selected_subjects.to_list())} のヒストグラムを表示します。")
-        st.pyplot(fig)
+        fig_violin = px.violin(
+            filterd_df.loc[:, subject_list],
+            y=subject_list,
+            labels={"variable": "教科", "value": "得点"},
+        )
+        st.plotly_chart(fig_violin)
+    elif graph_option == "全体分布":
+        fig = px.scatter_matrix(filterd_df, dimensions=subject_list, color="クラス")
+        st.plotly_chart(fig)
+    elif graph_option == "教科別レベル":
+        st.write("教科別のレベルを表示します。")
+        for subject in subject_list:
+            thresholds = get_defult_threshold(filterd_df.loc[:, subject])
+            st.subheader(subject)
+            fig_hist = px.histogram(
+                filterd_df,
+                x=subject,
+                nbins=10,
+                marginal="box",
+                # color=class_col,
+                # barmode="overlay",
+            )
 
-    
+            # 閾値の追加
+            for i, threshold in enumerate(thresholds):
+                fig_hist.add_shape(
+                    go.layout.Shape(
+                        type="line",
+                        x0=threshold,
+                        x1=threshold,
+                        y0=0,
+                        y1=1,
+                        yref="paper",
+                        line=dict(
+                            color="Red",
+                            width=1.5,
+                            dash="dot",
+                        ),
+                    )
+                )
+                fig_hist.add_annotation(
+                    x=threshold,
+                    y=0.95,
+                    yref="paper",
+                    text=f"Threshold {i+1}",
+                    showarrow=False,
+                )
+            st.plotly_chart(fig_hist)
+            st.write(filterd_df.loc[:, [name_col, class_col, subject]].sort_values(subject))
+
     st.write(filterd_df)
